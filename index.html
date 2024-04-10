@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .search-btn {
+            margin-top: 1.8rem !important;
+        }
+
+        .table-bordered {
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .table-bordered th,
+        .table-bordered td {
+            border-right-width: 1px;
+            border-bottom-width: 1px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+
+            .table-bordered th:nth-child(6),
+            .table-bordered td:nth-child(6) {
+                display: none;
+            }
+        }
+    </style>
+    <title>Search Items</title>
+    <!-- Bootstrap CSS (Dark Theme) -->
+    <link href="https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/darkly/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Search Items</h1>
+
+        <form id="searchForm" class="mb-4 align-items-center">
+            <div class="row">
+
+                <div class="col-md-6">
+                    <label for="itemName">Item Name:</label>
+                    <input type="text" id="itemName" name="itemName" class="form-control" required>
+                </div>
+                <div class="col-md-2">
+                    <label for="page">Page:</label>
+                    <input type="number" id="page" name="page" class="form-control" min="1" value="1">
+                </div>
+                <div class="col-md-2">
+                    <label for="limit">Limit:</label>
+                    <input type="number" id="limit" name="limit" class="form-control" min="1" value="5">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary search-btn">Search</button>
+                </div>
+            </div>
+        </form>
+        <div class="table-responsive">
+            <div class="text-center" id="pageNumber"></div>
+            <table id="resultsTable" class="table table-dark table-bordered mt-4">
+                <thead>
+                    <tr>
+                        <th>World</th>
+                        <th>Location</th>
+                        <th>Item</th>
+                        <th>Price</th>
+                        <th>Accessible</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+        <button id="prevPageBtn" class="btn btn-primary mr-2">Previous Page</button>
+        <button id="nextPageBtn" class="btn btn-primary">Next Page</button>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        const form = document.getElementById('searchForm');
+        const resultsBody = document.getElementById('resultsBody');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+
+        let currentPage = 1;
+        let totalPages = 1; // Menambahkan variabel totalPages
+
+        async function fetchData(itemName, page, limit) {
+            try {
+                const response = await fetch(`http://localhost:3000/search?name=${itemName}&page=${page}&limit=${limit}`);
+                const data = await response.json();
+                totalPages = data.pageInfo.totalPages; // Menetapkan total halaman dari respons server
+                return data;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                throw new Error('Error fetching data');
+            }
+        }
+
+        // Fungsi untuk menampilkan nomor halaman
+        function displayPageNumber() {
+            const pageNumberElement = document.getElementById('pageNumber');
+            if (pageNumberElement) {
+                pageNumberElement.textContent = `Page ${currentPage} of ${totalPages}`;
+            }
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const itemName = document.getElementById('itemName').value;
+            const page = document.getElementById('page').value;
+            const limit = document.getElementById('limit').value;
+
+            currentPage = 1;
+            document.getElementById('page').value = currentPage; // Menetapkan nilai halaman ke 1 di formulir
+
+            try {
+                const data = await fetchData(itemName, page, limit);
+                if (data && data.results && data.results.length > 0) {
+                    displayResults(data.results);
+                    currentPage = parseInt(page);
+                    displayPageNumber(); // Memanggil fungsi untuk menampilkan nomor halaman
+                } else {
+                    resultsBody.innerHTML = "<tr><td colspan='6'>No results found.</td></tr>";
+                }
+            } catch (error) {
+                console.error('Error processing form submission:', error);
+                throw new Error('Error processing form submission');
+            }
+        });
+
+        nextPageBtn.addEventListener('click', async () => {
+            currentPage++;
+            const itemName = document.getElementById('itemName').value;
+            const limit = document.getElementById('limit').value;
+
+            try {
+                const data = await fetchData(itemName, currentPage, limit);
+                if (data && data.results && data.results.length > 0) {
+                    displayResults(data.results);
+                    document.getElementById('page').value = currentPage;
+                    displayPageNumber(); // Memanggil fungsi untuk menampilkan nomor halaman
+                } else {
+                    currentPage--;
+                    resultsBody.innerHTML = "<tr><td colspan='6'>No results found on next page.</td></tr>";
+                }
+            } catch (error) {
+                console.error('Error processing next page button click:', error);
+                throw new Error('Error processing next page button click');
+            }
+        });
+
+        prevPageBtn.addEventListener('click', async () => {
+            currentPage--;
+            if (currentPage < 1) {
+                currentPage = 1;
+                return;
+            }
+
+            const itemName = document.getElementById('itemName').value;
+            const limit = document.getElementById('limit').value;
+
+            try {
+                const data = await fetchData(itemName, currentPage, limit);
+                if (data && data.results && data.results.length > 0) {
+                    displayResults(data.results);
+                    document.getElementById('page').value = currentPage;
+                    displayPageNumber(); // Memanggil fungsi untuk menampilkan nomor halaman
+                } else {
+                    currentPage++;
+                    resultsBody.innerHTML = "<tr><td colspan='6'>No results found on previous page.</td></tr>";
+                }
+            } catch (error) {
+                console.error('Error processing previous page button click:', error);
+                throw new Error('Error processing previous page button click');
+            }
+        });
+
+        function displayResults(results) {
+            let html = "";
+            results.forEach(result => {
+                html += `<tr>
+          <td>${result.world}</td>
+          <td>(${result.location})</td>
+          <td>${result.item}</td>
+          <td>${result.price}</td>
+          <td>${result.accessible}</td>
+          <td>${result.date}</td>
+        </tr>`;
+            });
+
+            resultsBody.innerHTML = html;
+            displayPageNumber(); // Memanggil fungsi untuk menampilkan nomor halaman setelah hasil ditampilkan
+        }
+
+    </script>
+
+</body>
+
+</html>
